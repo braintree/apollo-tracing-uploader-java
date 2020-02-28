@@ -6,4 +6,16 @@ sudo: false
 branches:
   only: master
 
-script: ./gradlew --stacktrace check
+jobs:
+  include:
+    - stage: test
+      name: "Run Tests"
+      script: ./gradlew --stacktrace check
+    - stage: deploy
+      name: "Upload Snapshot"
+      script: ./script/upload_snapshot.sh
+
+stages:
+  - test
+  - name: deploy
+    if: branch = master AND type != pull_request
