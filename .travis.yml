@@ -4,6 +4,6 @@ dist: trusty
 sudo: false
 
 branches:
-  only: [master, travis]
+  only: master
 
 script: ./gradlew --stacktrace check
