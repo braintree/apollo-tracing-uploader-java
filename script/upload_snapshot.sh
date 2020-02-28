@@ -17,5 +17,5 @@ elif [ "$TRAVIS_BRANCH" != "$BRANCH" ]; then
 elif [[ "$(./gradlew --console=plain properties | grep version)" != *-SNAPSHOT ]]; then
   echo "Skipping snapshot deployment: not a snapshot version."
 else
-  echo ./gradlew uploadArchives
+  ./gradlew uploadArchives
 fi
