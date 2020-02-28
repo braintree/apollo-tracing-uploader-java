@@ -6,4 +6,25 @@ sudo: false
 branches:
   only: master
 
-script: ./gradlew --stacktrace check
+before_cache:
+  - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
+  - rm -fr $HOME/.gradle/caches/*/plugin-resolution/
+
+cache:
+  directories:
+    - $HOME/.gradle/caches/
+    - $HOME/.gradle/wrapper/
+
+jobs:
+  include:
+    - stage: test
+      name: "Run Tests"
+      script: ./gradlew --stacktrace check
+    - stage: deploy
+      name: "Upload Snapshot"
+      script: ./script/upload_snapshot.sh
+
+stages:
+  - test
+  - name: deploy
+    if: branch = master AND type != pull_request
