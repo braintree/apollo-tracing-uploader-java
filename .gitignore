@@ -1,0 +1,7 @@
+!gradle-wrapper.jar
+*.iml
+.gradle
+.gradletasknamecache
+.idea
+build/
+gradle-app.setting
