@@ -25,38 +25,32 @@ import graphql.schema.GraphQLSchema;
 import mdg.engine.proto.Reports;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public class EndToEndTest {
-  @Test
-  public void endToEnd() {
-    GraphQLSchema schema = SchemaParser.newParser()
-      .schemaString("type Query {\n"
-                    + "  echo(str: String!): String!\n"
-                    + "  users: [User!]!\n"
-                    + "  err: Boolean!\n"
-                    + "}\n"
-                    + "type User {\n"
-                    + "  id: Int!\n"
-                    + "}")
-      .resolvers(new MinimalQueryResolver(), new MinimalQueryResolver.UserResolver())
-      .build()
-      .makeExecutableSchema();
+  private GraphQLSchema schema = SchemaParser.newParser()
+    .schemaString("type Query {\n"
+                  + "  echo(str: String!): String!\n"
+                  + "  users: [User!]!\n"
+                  + "  err: Boolean!\n"
+                  + "}\n"
+                  + "type User {\n"
+                  + "  id: Int!\n"
+                  + "}")
+    .resolvers(new MinimalQueryResolver(), new MinimalQueryResolver.UserResolver())
+    .build()
+    .makeExecutableSchema();
 
+  @Test
+  public void testInstrumentation() {
     List<Reports.FullTracesReport> uploadedReports = new ArrayList<>();
-    List<Reports.FullTracesReport> uploadedReportsNoop = new ArrayList<>();
 
     ScheduledBatchingTraceProducer producer = ScheduledBatchingTraceProducer.newBuilder()
       .batchingWindow(Duration.ofSeconds(1))
       .threadPoolSize(1)
       .customizeHeader(header -> header.setService("service"))
       .uploader(uploadedReports::add)
-      .build();
-
-    ScheduledBatchingTraceProducer noopProducer = ScheduledBatchingTraceProducer.newBuilder()
-      .batchingWindow(Duration.ofSeconds(1))
-      .threadPoolSize(1)
-      .uploader(uploadedReportsNoop::add)
       .build();
 
     TracingUploadInstrumentation instrumentation = TracingUploadInstrumentation.newBuilder()
@@ -66,19 +60,9 @@ public class EndToEndTest {
       .producer(producer)
       .build();
 
-    TracingUploadInstrumentation noopInstrumentation = TracingUploadInstrumentation.newBuilder()
-      .sendTracesIf(() -> false)
-      .producer(noopProducer)
-      .build();
-
     GraphQL graphQL = GraphQL
       .newGraphQL(schema)
       .instrumentation(instrumentation)
-      .build();
-
-    GraphQL noopGraphQL = GraphQL
-      .newGraphQL(schema)
-      .instrumentation(noopInstrumentation)
       .build();
 
     ExecutionInput echoInput = ExecutionInput
@@ -91,16 +75,14 @@ public class EndToEndTest {
     Instant startTime = Instant.now();
 
     graphQL.execute(echoInput);
-    noopGraphQL.execute(echoInput);
+    graphQL.execute("{ echo(str: \"secret variable\") }");
     graphQL.execute("{ myUsers: users { id } }");
     graphQL.execute("{ err }");
     graphQL.execute("");
 
     producer.shutdown();
-    noopProducer.shutdown();
 
     assertEquals(1, uploadedReports.size());
-    assertEquals(0, uploadedReportsNoop.size());
 
     Reports.FullTracesReport fullTracesReport = uploadedReports.get(0);
 
@@ -110,11 +92,12 @@ public class EndToEndTest {
 
     Map<String, Reports.Traces> tracesPerQuery = fullTracesReport.getTracesPerQueryMap();
 
-    assertEquals(4, tracesPerQuery.size());
+    assertEquals(5, tracesPerQuery.size());
 
     Reports.Trace usersTrace = tracesPerQuery.get("# -\nquery {users {id}}").getTrace(0);
     Reports.Trace errTrace = tracesPerQuery.get("# -\nquery {err}").getTrace(0);
     Reports.Trace echoTrace = tracesPerQuery.get("# EchoOp\nquery EchoOp($var1:String!) {echo(str:$var1)}").getTrace(0);
+    Reports.Trace inlineEchoTrace = tracesPerQuery.get("# -\nquery {echo(str:\"\")}").getTrace(0);
     Reports.Trace garbageTrace = tracesPerQuery.get("# -\n").getTrace(0);
 
     tracesPerQuery.forEach((key, traces) -> {
@@ -148,23 +131,27 @@ public class EndToEndTest {
       // We don't want to leak inline variables, but also Apollo doesn't seem to send raw query either:
       // https://github.com/apollographql/apollo-server/blob/815c77afe847c84a1215f06b06e188eba2a2f8d2/packages/apollo-engine-reporting/src/extension.ts#L263-L267
       assertTrue(trace.getDetails().getRawQuery().isEmpty());
+      assertFalse(trace.toString().contains("secret"));
     });
 
-    Reports.Trace.Details echoDetails = echoTrace.getDetails();
-    Reports.Trace.Node echoRoot = echoTrace.getRoot();
-
-    assertEquals("EchoOp", echoDetails.getOperationName());
+    assertEquals("query {echo(str:\"\")}", inlineEchoTrace.getSignature());
     assertEquals("query EchoOp($var1:String!) {echo(str:$var1)}", echoTrace.getSignature());
-    assertEquals(0, echoRoot.getErrorCount());
-    assertEquals(1, echoRoot.getChildCount());
+    assertEquals("EchoOp", echoTrace.getDetails().getOperationName());
 
-    Reports.Trace.Node echoChild = echoRoot.getChild(0);
-    assertTrue(echoChild.getEndTime() > echoChild.getStartTime());
-    assertEquals("echo", echoChild.getResponseName());
-    assertEquals("Query", echoChild.getParentType());
-    assertEquals("String!", echoChild.getType());
-    assertEquals(0, echoChild.getErrorCount());
-    assertEquals(0, echoChild.getChildCount());
+    Arrays.asList(echoTrace, inlineEchoTrace).forEach(trace -> {
+      Reports.Trace.Node echoRoot = trace.getRoot();
+
+      assertEquals(0, echoRoot.getErrorCount());
+      assertEquals(1, echoRoot.getChildCount());
+
+      Reports.Trace.Node echoChild = echoRoot.getChild(0);
+      assertTrue(echoChild.getEndTime() > echoChild.getStartTime());
+      assertEquals("echo", echoChild.getResponseName());
+      assertEquals("Query", echoChild.getParentType());
+      assertEquals("String!", echoChild.getType());
+      assertEquals(0, echoChild.getErrorCount());
+      assertEquals(0, echoChild.getChildCount());
+    });
 
     Reports.Trace.Details usersDetails = usersTrace.getDetails();
     Reports.Trace.Node usersRoot = usersTrace.getRoot();
@@ -235,6 +222,33 @@ public class EndToEndTest {
     Reports.Trace.Error garbageError = garbageRoot.getError(0);
     assertTrue(garbageError.getMessage().contains("Invalid Syntax"));
     assertTrue(garbageError.getJson().contains("{\"message\":\"Invalid Syntax"));
+  }
+
+  @Test
+  public void testInstrumentationDisabled() {
+    List<Reports.FullTracesReport> uploadedReports = new ArrayList<>();
+
+    ScheduledBatchingTraceProducer producer = ScheduledBatchingTraceProducer.newBuilder()
+      .batchingWindow(Duration.ofSeconds(1))
+      .threadPoolSize(1)
+      .uploader(uploadedReports::add)
+      .build();
+
+    TracingUploadInstrumentation noopInstrumentation = TracingUploadInstrumentation.newBuilder()
+      .sendTracesIf(() -> false) // Disable traces
+      .producer(producer)
+      .build();
+
+    GraphQL graphQL = GraphQL
+      .newGraphQL(schema)
+      .instrumentation(noopInstrumentation)
+      .build();
+
+    graphQL.execute("{ echo(str: \"hello\") }");
+
+    producer.shutdown();
+
+    assertEquals(0, uploadedReports.size());
   }
 
   private static class MinimalQueryResolver implements GraphQLQueryResolver {
