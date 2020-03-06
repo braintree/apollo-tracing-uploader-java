@@ -6,7 +6,7 @@ A [GraphQL Java instrumentation](https://www.graphql-java.com/documentation/v12/
 
 ## Adding It To Your Project
 
-Right now only snapshot builds are available. Add the following to your `build.gradle`:
+Right now only snapshot releases are available. Add the following to your `build.gradle`:
 
 ```groovy
 dependencies {
