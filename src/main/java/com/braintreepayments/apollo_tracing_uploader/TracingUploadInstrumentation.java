@@ -2,7 +2,11 @@ package com.braintreepayments.apollo_tracing_uploader;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
@@ -20,6 +24,7 @@ import mdg.engine.proto.Reports;
  * To build one, use the provided builder from {@link TracingUploadInstrumentation#newBuilder()}.
  */
 public class TracingUploadInstrumentation extends SimpleInstrumentation {
+  private static final Logger logger = LoggerFactory.getLogger(TracingUploadInstrumentation.class);
   private final BiConsumer<Reports.Trace.Builder, Object> customizeTrace;
   private final VariablesSanitizer sanitizeVariables;
   private final TraceProducer producer;
@@ -42,64 +47,54 @@ public class TracingUploadInstrumentation extends SimpleInstrumentation {
   @Override
   public TracingUploadInstrumentationState createState() {
     boolean noop = !sendTracesIf.get();
-    return new TracingUploadInstrumentationState(customizeTrace, sanitizeVariables, noop);
+    return new TracingUploadInstrumentationState(producer, customizeTrace, sanitizeVariables, noop);
   }
 
   @Override
   public ExecutionInput instrumentExecutionInput(ExecutionInput executionInput,
-                                                 InstrumentationExecutionParameters parameters) {
-    TracingUploadInstrumentationState state = parameters.getInstrumentationState();
-
-    if (state.noop) {
-      return executionInput;
-    } else {
-      return state.instrumentExecutionInput(executionInput);
-    }
+                                                 InstrumentationExecutionParameters params) {
+    TracingUploadInstrumentationState state = params.getInstrumentationState();
+    return wrapHook(state, state::instrumentExecutionInput, executionInput, executionInput);
   }
 
   @Override
-  public InstrumentationContext<ExecutionResult> beginExecution(InstrumentationExecutionParameters parameters) {
-    TracingUploadInstrumentationState state = parameters.getInstrumentationState();
-
-    if (state.noop) {
-      return SimpleInstrumentationContext.noOp();
-    } else {
-      return state.beginExecution(parameters);
-    }
+  public InstrumentationContext<ExecutionResult> beginExecution(InstrumentationExecutionParameters params) {
+    TracingUploadInstrumentationState state = params.getInstrumentationState();
+    return wrapHook(state, state::beginExecution, params, SimpleInstrumentationContext.noOp());
   }
 
   @Override
-  public InstrumentationContext<ExecutionResult> beginExecuteOperation(InstrumentationExecuteOperationParameters parameters) {
-    TracingUploadInstrumentationState state = parameters.getInstrumentationState();
-
-    if (state.noop) {
-      return SimpleInstrumentationContext.noOp();
-    } else {
-      return state.beginExecuteOperation(parameters);
-    }
+  public InstrumentationContext<ExecutionResult> beginExecuteOperation(InstrumentationExecuteOperationParameters params) {
+    TracingUploadInstrumentationState state = params.getInstrumentationState();
+    return wrapHook(state, state::beginExecuteOperation, params, SimpleInstrumentationContext.noOp());
   }
 
   @Override
-  public InstrumentationContext<Object> beginFieldFetch(InstrumentationFieldFetchParameters parameters) {
-    TracingUploadInstrumentationState state = parameters.getInstrumentationState();
-
-    if (state.noop) {
-      return SimpleInstrumentationContext.noOp();
-    } else {
-      return state.beginFieldFetch(parameters);
-    }
+  public InstrumentationContext<Object> beginFieldFetch(InstrumentationFieldFetchParameters params) {
+    TracingUploadInstrumentationState state = params.getInstrumentationState();
+    return wrapHook(state, state::beginFieldFetch, params, SimpleInstrumentationContext.noOp());
   }
 
   @Override
   public CompletableFuture<ExecutionResult> instrumentExecutionResult(ExecutionResult executionResult,
-                                                                      InstrumentationExecutionParameters parameters) {
-    TracingUploadInstrumentationState state = parameters.getInstrumentationState();
+                                                                      InstrumentationExecutionParameters params) {
+    TracingUploadInstrumentationState state = params.getInstrumentationState();
 
-    if (!state.noop) {
-      producer.submit(state.build());
+    return wrapHook(state,
+                    state::instrumentExecutionResult,
+                    executionResult,
+                    CompletableFuture.completedFuture(executionResult));
+  }
+
+  private <T, U> U wrapHook(TracingUploadInstrumentationState state, Function<T, U> fn, T params, U fallback) {
+    if (state.noop) return fallback;
+
+    try {
+      return fn.apply(params);
+    } catch (Exception e) {
+      logger.error("Instrumentation error", e);
+      return fallback;
     }
-
-    return CompletableFuture.completedFuture(executionResult);
   }
 
   public static class Builder {

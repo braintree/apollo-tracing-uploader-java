@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -27,16 +28,19 @@ import mdg.engine.proto.Reports;
 
 public class TracingUploadInstrumentationState implements InstrumentationState {
   private final Gson gson = new Gson();
-  private BiConsumer<Reports.Trace.Builder, Object> customizeTrace;
+  private final TraceProducer producer;
+  private final BiConsumer<Reports.Trace.Builder, Object> customizeTrace;
   private final VariablesSanitizer sanitizeVariables;
   private final Reports.Trace.Builder proto;
   private final long startRequestNs;
   private Object context;
   public final boolean noop;
 
-  public TracingUploadInstrumentationState(BiConsumer<Reports.Trace.Builder, Object> customizeTrace,
+  public TracingUploadInstrumentationState(TraceProducer producer,
+                                           BiConsumer<Reports.Trace.Builder, Object> customizeTrace,
                                            VariablesSanitizer sanitizeVariables,
                                            boolean noop) {
+    this.producer = producer;
     this.customizeTrace = customizeTrace;
     this.sanitizeVariables = sanitizeVariables;
     this.proto = Reports.Trace.newBuilder();
@@ -123,9 +127,11 @@ public class TracingUploadInstrumentationState implements InstrumentationState {
     });
   }
 
-  public Reports.Trace build() {
+  public CompletableFuture<ExecutionResult> instrumentExecutionResult(ExecutionResult executionResult) {
     customizeTrace.accept(proto, context);
-    return proto.build();
+    producer.submit(proto.build());
+
+    return CompletableFuture.completedFuture(executionResult);
   }
 
   private Timestamp protoTimestamp(Instant instant) {
