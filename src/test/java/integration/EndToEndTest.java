@@ -8,6 +8,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import com.braintreepayments.apollo_tracing_uploader.TracingUploadInstrumentation;
 import com.braintreepayments.apollo_tracing_uploader.VariablesSanitizer;
@@ -172,8 +173,8 @@ public class EndToEndTest {
     assertEquals(0, usersChild.getErrorCount());
     assertEquals(2, usersChild.getChildCount());
 
-    assertEquals(0, usersChild.getChild(0).getIndex());
-    assertEquals(1, usersChild.getChild(1).getIndex());
+    assertEquals(Arrays.asList(0, 1),
+                 usersChild.getChildList().stream().map(Reports.Trace.Node::getIndex).sorted().collect(Collectors.toList()));
 
     usersChild.getChildList().forEach(idIndexChild -> {
       assertEquals(1, idIndexChild.getChildCount());
