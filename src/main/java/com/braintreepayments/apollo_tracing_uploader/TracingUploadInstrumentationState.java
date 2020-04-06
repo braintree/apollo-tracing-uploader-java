@@ -24,6 +24,7 @@ import graphql.execution.instrumentation.parameters.InstrumentationExecutionPara
 import graphql.execution.instrumentation.parameters.InstrumentationFieldFetchParameters;
 import graphql.language.AstPrinter;
 import graphql.language.AstSignature;
+import graphql.schema.GraphQLTypeUtil;
 import mdg.engine.proto.Reports;
 
 public class TracingUploadInstrumentationState implements InstrumentationState {
@@ -121,7 +122,7 @@ public class TracingUploadInstrumentationState implements InstrumentationState {
       path.getChild(rootNode)
         .setOriginalFieldName(stepInfo.getFieldDefinition().getName())
         .setType(stepInfo.simplePrint())
-        .setParentType(stepInfo.getParent().getUnwrappedNonNullType().getName())
+        .setParentType(GraphQLTypeUtil.simplePrint(stepInfo.getParent().getUnwrappedNonNullType()))
         .setStartTime(offsetNs)
         .setEndTime(offsetNs + durationNs);
     });
