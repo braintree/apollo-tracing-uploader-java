@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -33,6 +34,7 @@ public class TracingUploadInstrumentationState implements InstrumentationState {
   private final BiConsumer<Reports.Trace.Builder, Object> customizeTrace;
   private final VariablesSanitizer sanitizeVariables;
   private final Reports.Trace.Builder proto;
+  private final ConcurrentHashMap<NodePath, Reports.Trace.Node> nodePathsToNodes;
   private final long startRequestNs;
   private Object context;
   public final boolean noop;
@@ -47,6 +49,7 @@ public class TracingUploadInstrumentationState implements InstrumentationState {
     this.proto = Reports.Trace.newBuilder();
     this.startRequestNs = System.nanoTime();
     this.context = null;
+    this.nodePathsToNodes = new ConcurrentHashMap<>();
     this.noop = noop;
   }
 
@@ -116,23 +119,31 @@ public class TracingUploadInstrumentationState implements InstrumentationState {
       long now = System.nanoTime();
       long durationNs = now - startFieldFetchNs;
 
-      Reports.Trace.Node.Builder rootNode = proto.getRootBuilder();
       NodePath path = NodePath.fromList(stepInfo.getPath().toList());
 
-      path.getChild(rootNode)
+      Reports.Trace.Node childNode = Reports.Trace.Node.newBuilder()
         .setOriginalFieldName(stepInfo.getFieldDefinition().getName())
         .setType(stepInfo.simplePrint())
         .setParentType(GraphQLTypeUtil.simplePrint(stepInfo.getParent().getUnwrappedNonNullType()))
         .setStartTime(offsetNs)
-        .setEndTime(offsetNs + durationNs);
+        .setEndTime(offsetNs + durationNs)
+        .build();
+
+      nodePathsToNodes.put(path, childNode);
     });
   }
 
   public CompletableFuture<ExecutionResult> instrumentExecutionResult(ExecutionResult executionResult) {
+    populateRootNode();
     customizeTrace.accept(proto, context);
     producer.submit(proto.build());
 
     return CompletableFuture.completedFuture(executionResult);
+  }
+
+  private void populateRootNode() {
+    Reports.Trace.Node.Builder rootNode = proto.getRootBuilder();
+    nodePathsToNodes.forEach((path, node) -> path.getChild(rootNode).mergeFrom(node));
   }
 
   private Timestamp protoTimestamp(Instant instant) {
