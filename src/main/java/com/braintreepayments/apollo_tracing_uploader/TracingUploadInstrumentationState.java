@@ -34,7 +34,7 @@ public class TracingUploadInstrumentationState implements InstrumentationState {
   private final BiConsumer<Reports.Trace.Builder, Object> customizeTrace;
   private final VariablesSanitizer sanitizeVariables;
   private final Reports.Trace.Builder proto;
-  private final ConcurrentHashMap<NodePath, Reports.Trace.Node> nodePathsToNodes;
+  private final Map<NodePath, Reports.Trace.Node> nodePathsToNodes;
   private final long startRequestNs;
   private Object context;
   public final boolean noop;
