@@ -1,7 +1,10 @@
 !gradle-wrapper.jar
 *.iml
+*.ipr
+*.iws
 .gradle
 .gradletasknamecache
 .idea
 build/
+out/
 gradle-app.setting
