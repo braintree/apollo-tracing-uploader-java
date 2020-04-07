@@ -7,9 +7,8 @@ plugins {
   id 'signing'
 }
 
-def name = 'apollo-tracing-uploader'
 group 'com.braintreepayments'
-version '0.1.0-SNAPSHOT'
+version '0.1.0'
 
 sourceCompatibility = 1.8
 
@@ -41,6 +40,8 @@ def sonatypePassword = System.env['SONATYPE_PASSWORD']
 
 nexusStaging {
   packageGroup = 'com.braintreepayments'
+  numberOfRetries 50
+  delayBetweenRetriesInMillis 3000
 }
 
 signing {
@@ -50,26 +51,63 @@ signing {
   sign configurations.archives
 }
 
+task javadocsJar(type: Jar) {
+  classifier = 'javadoc'
+  from sourceSets.main.java.srcDirs
+}
+
+task sourcesJar(type: Jar) {
+  classifier = 'sources'
+  from sourceSets.main.java.srcDirs
+}
+
+artifacts {
+  archives javadocsJar
+  archives sourcesJar
+}
+
 uploadArchives {
   repositories.mavenDeployer {
-    pom.setArtifactId name
+    pom.setArtifactId 'apollo-tracing-uploader'
 
     pom.project {
-      name = name
-      groupId = 'com.braintreepayments'
+      name 'apollo-tracing-uploader'
       version = version
+      groupId 'com.braintreepayments'
       description 'A GraphQL Java instrumentation for uploading tracing metrics to the Apollo Graph Manager.'
+      url 'https://github.com/braintree/apollo-tracing-uploader-java'
+
+      scm {
+        url 'scm:git@github.com:braintree/apollo-tracing-uploader-java.git'
+      }
+
+      developers {
+        developer {
+          id 'devs'
+        }
+      }
+
+      licenses {
+        license {
+          url 'http://opensource.org/licenses/MIT'
+          distribution 'repo'
+        }
+      }
     }
 
     doFirst {
       if (sonatypePassword == null) {
-        throw new Exception('Need to set SONATYPE_PASSWORD enviornment variable.')
+        throw new Exception('Need to set SONATYPE_PASSWORD environment variable.')
       }
     }
 
     beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
 
     configuration = configurations.deployerJars
+
+    repository(url: 'https://oss.sonatype.org/service/local/staging/deploy/maven2/') {
+      authentication(userName: 'braintree', password: sonatypePassword)
+    }
 
     snapshotRepository(url: 'https://oss.sonatype.org/content/repositories/snapshots/') {
       authentication(userName: 'braintree', password: sonatypePassword)
