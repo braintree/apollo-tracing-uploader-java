@@ -1,18 +1,10 @@
 package com.braintreepayments.apollo_tracing_uploader;
 
-import java.util.function.Consumer;
-
 import mdg.engine.proto.Reports;
 
-public abstract class TraceProducer {
-  protected final FullTracesReportBuilder reportBuilder = new FullTracesReportBuilder();
-  protected final Consumer<Reports.ReportHeader.Builder> customizeReportHeader;
-  protected final Uploader uploader;
+public interface TraceProducer {
+  String APOLLO_TRACING_URL = "https://engine-report.apollodata.com/api/ingress/traces";
+  String API_KEY_HEADER = "X-Api-Key";
 
-  public TraceProducer(Consumer<Reports.ReportHeader.Builder> customizeReportHeader, Uploader uploader) {
-    this.customizeReportHeader = customizeReportHeader;
-    this.uploader = uploader;
-  }
-
-  public abstract void submit(Reports.Trace trace);
+  void submit(Reports.Trace trace);
 }
