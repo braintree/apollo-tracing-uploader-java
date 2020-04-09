@@ -20,11 +20,11 @@ jobs:
     - stage: test
       name: "Run Tests"
       script: ./gradlew --stacktrace check
-    - stage: deploy
-      name: "Upload Snapshot"
-      script: ./script/upload_snapshot.sh
+    - stage: snapshot
+      name: "Deploy Snapshot"
+      script: ./script/deploy.sh snapshot
 
 stages:
   - test
-  - name: deploy
+  - name: snapshot
     if: branch = master AND type != pull_request
