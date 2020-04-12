@@ -1,4 +1,4 @@
-package com.braintreepayments.apollo_tracing_uploader.impl;
+package com.braintreepayments.apollo_tracing_uploader;
 
 import mdg.engine.proto.Reports;
 
