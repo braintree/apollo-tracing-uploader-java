@@ -11,6 +11,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPOutputStream;
 
+import com.braintreepayments.apollo_tracing_uploader.Constants;
 import com.braintreepayments.apollo_tracing_uploader.Uploader;
 
 import org.slf4j.Logger;
@@ -43,7 +44,7 @@ public class HttpTracingUploader implements Uploader {
     this.executor = executor;
 
     try {
-      this.url = new URL(Uploader.APOLLO_TRACING_URL);
+      this.url = new URL(Constants.APOLLO_TRACING_URL);
     } catch (MalformedURLException e) {
       throw new RuntimeException(e);
     }
@@ -82,7 +83,7 @@ public class HttpTracingUploader implements Uploader {
     conn.setRequestMethod("POST");
     conn.setRequestProperty("Content-Type", "application/octet-stream");
     conn.setRequestProperty("Content-Encoding", "gzip");
-    conn.setRequestProperty(API_KEY_HEADER, apiKey);
+    conn.setRequestProperty(Constants.API_KEY_HEADER, apiKey);
     conn.setDoOutput(true);
 
     GZIPOutputStream reqBody = new GZIPOutputStream(conn.getOutputStream());

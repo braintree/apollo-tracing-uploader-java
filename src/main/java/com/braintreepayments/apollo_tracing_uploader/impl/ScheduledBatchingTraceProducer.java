@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
+import com.braintreepayments.apollo_tracing_uploader.FullTracesReportBuilder;
 import com.braintreepayments.apollo_tracing_uploader.TraceProducer;
 import com.braintreepayments.apollo_tracing_uploader.Uploader;
 
@@ -26,7 +27,7 @@ import mdg.engine.proto.Reports;
  * <p>
  * {@link ScheduledBatchingTraceProducer#shutdown} should be called at application shutdown to prevent dropped metrics.
  */
-public class ScheduledBatchingTraceProducer extends TraceProducer {
+public class ScheduledBatchingTraceProducer extends AbstractTraceProducer {
   private final Logger logger = LoggerFactory.getLogger(ScheduledBatchingTraceProducer.class);
   private final int threadPoolSize;
   private final BlockingQueue<Reports.Trace> queue;
