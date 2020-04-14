@@ -10,7 +10,7 @@ Add the following to your `build.gradle`:
 
 ```groovy
 dependencies {
-  compile 'com.braintreepayments:apollo-tracing-uploader:0.1.0'
+  compile 'com.braintreepayments:apollo-tracing-uploader:0.2.0'
 }
 ```
 
