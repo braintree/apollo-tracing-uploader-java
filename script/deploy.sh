@@ -2,12 +2,6 @@
 
 set -euo pipefail
 
-branch="${BRANCH:-master}"
-if [[ "$(git rev-parse --abbrev-ref HEAD)" != "$branch" ]]; then
-  echo "Must be run from $branch (set \$BRANCH to override)" >&2
-  exit 1
-fi
-
 cd -P "$(dirname "$0")/.."
 version="$(./gradlew --console=plain properties | grep version: | cut -d' ' -f2)"
 
