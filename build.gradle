@@ -27,7 +27,7 @@ dependencies {
 
   testCompile 'junit:junit:4.12'
   testCompile 'org.mockito:mockito-core:3.2.0'
-  testCompile 'com.graphql-java-kickstart:graphql-java-tools:5.6.0'
+  testCompile 'com.graphql-java-kickstart:graphql-java-tools:11.0.0'
 }
 
 protobuf {
