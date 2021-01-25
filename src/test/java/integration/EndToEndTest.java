@@ -1,9 +1,5 @@
 package integration;
 
-import graphql.kickstart.tools.GraphQLQueryResolver;
-
-import graphql.kickstart.tools.GraphQLResolver;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -23,6 +19,8 @@ import org.junit.Test;
 import graphql.ExecutionInput;
 import graphql.GraphQL;
 import graphql.execution.AbortExecutionException;
+import graphql.kickstart.tools.GraphQLQueryResolver;
+import graphql.kickstart.tools.GraphQLResolver;
 import graphql.kickstart.tools.SchemaParser;
 import graphql.schema.GraphQLSchema;
 import mdg.engine.proto.Reports;
