@@ -13,15 +13,15 @@ import java.util.stream.Collectors;
 import com.braintreepayments.apollo_tracing_uploader.TracingUploadInstrumentation;
 import com.braintreepayments.apollo_tracing_uploader.VariablesSanitizer;
 import com.braintreepayments.apollo_tracing_uploader.impl.ScheduledBatchingTraceProducer;
-import com.coxautodev.graphql.tools.GraphQLQueryResolver;
-import com.coxautodev.graphql.tools.GraphQLResolver;
-import com.coxautodev.graphql.tools.SchemaParser;
 
 import org.junit.Test;
 
 import graphql.ExecutionInput;
 import graphql.GraphQL;
 import graphql.execution.AbortExecutionException;
+import graphql.kickstart.tools.GraphQLQueryResolver;
+import graphql.kickstart.tools.GraphQLResolver;
+import graphql.kickstart.tools.SchemaParser;
 import graphql.schema.GraphQLSchema;
 import mdg.engine.proto.Reports;
 
