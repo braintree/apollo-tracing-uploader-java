@@ -57,29 +57,24 @@ public class EndToEndTest {
     TracingUploadInstrumentation instrumentation = TracingUploadInstrumentation.newBuilder()
       .sendTracesIf(() -> true)
       .customizeTrace((trace, context) -> trace.setClientName("client " + context.toString()))
+      .customizeTraceWithGraphQLContext((trace, context) -> trace.setClientVersion("version " + context.toString()))
       .sanitizeVariables(VariablesSanitizer.valuesTo("X"))
       .producer(producer)
       .build();
 
-    GraphQL graphQL = GraphQL
-      .newGraphQL(schema)
+    GraphQL graphQL = GraphQL.newGraphQL(schema)
       .instrumentation(instrumentation)
-      .build();
-
-    ExecutionInput echoInput = ExecutionInput
-      .newExecutionInput()
-      .operationName("EchoOp")
-      .query("query EchoOp($msg: String!) { echo(str: $msg) }")
-      .variables(Collections.singletonMap("msg", "Hello!"))
       .build();
 
     Instant startTime = Instant.now();
 
-    graphQL.execute(echoInput);
-    graphQL.execute("{ echo(str: \"secret variable\") }");
-    graphQL.execute("{ myUsers: users { id } }");
-    graphQL.execute("{ err }");
-    graphQL.execute("");
+    graphQL.execute(getExecutionInput("EchoOp",
+                                      "query EchoOp($msg: String!) { echo(str: $msg) }",
+                                      Collections.singletonMap("msg", "Hello!")));
+    graphQL.execute(getExecutionInput("", "{ echo(str: \"secret variable\") }", null));
+    graphQL.execute(getExecutionInput("", "{ myUsers: users { id } }", null));
+    graphQL.execute(getExecutionInput("", "{ err }", null));
+    graphQL.execute(getExecutionInput("", "", null));
 
     producer.shutdown();
 
@@ -119,7 +114,8 @@ public class EndToEndTest {
 
       assertTrue(traceStart < traceEnd);
 
-      assertTrue(trace.getClientName().startsWith("client graphql.GraphQLContext@"));
+      assertTrue(trace.getClientName().startsWith("client Deprecated Context"));
+      assertTrue(trace.getClientVersion().startsWith("version {foo=bar}"));
       trace.getDetails().getVariablesJsonMap().forEach((k, v) -> assertEquals("\"X\"", v));
 
       // not set in apollo-server, so not setting it here
@@ -174,7 +170,11 @@ public class EndToEndTest {
     assertEquals(2, usersChild.getChildCount());
 
     assertEquals(Arrays.asList(0, 1),
-                 usersChild.getChildList().stream().map(Reports.Trace.Node::getIndex).sorted().collect(Collectors.toList()));
+                 usersChild.getChildList()
+                   .stream()
+                   .map(Reports.Trace.Node::getIndex)
+                   .sorted()
+                   .collect(Collectors.toList()));
 
     usersChild.getChildList().forEach(idIndexChild -> {
       assertEquals(1, idIndexChild.getChildCount());
@@ -250,6 +250,16 @@ public class EndToEndTest {
     producer.shutdown();
 
     assertEquals(0, uploadedReports.size());
+  }
+
+  private ExecutionInput getExecutionInput(String operation, String query, Map<String, Object> variables) {
+    return ExecutionInput.newExecutionInput()
+      .operationName(operation)
+      .query(query)
+      .variables(variables != null ? variables : Collections.emptyMap())
+      .graphQLContext((builder -> builder.put("foo", "bar")))
+      .context("Deprecated Context")
+      .build();
   }
 
   private static class MinimalQueryResolver implements GraphQLQueryResolver {

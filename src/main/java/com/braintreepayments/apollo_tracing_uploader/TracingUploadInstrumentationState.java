@@ -16,6 +16,7 @@ import com.google.protobuf.Timestamp;
 
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
+import graphql.GraphQLContext;
 import graphql.execution.ExecutionStepInfo;
 import graphql.execution.instrumentation.InstrumentationContext;
 import graphql.execution.instrumentation.InstrumentationState;
@@ -32,29 +33,35 @@ public class TracingUploadInstrumentationState implements InstrumentationState {
   private final Gson gson = new Gson();
   private final TraceProducer producer;
   private final BiConsumer<Reports.Trace.Builder, Object> customizeTrace;
+  private final BiConsumer<Reports.Trace.Builder, GraphQLContext> customizeTraceGraphQLContext;
   private final VariablesSanitizer sanitizeVariables;
   private final Reports.Trace.Builder proto;
   private final Map<NodePath, Reports.Trace.Node> nodePathsToNodes;
   private final long startRequestNs;
   private Object context;
+  private GraphQLContext graphQLContext;
   public final boolean noop;
 
   public TracingUploadInstrumentationState(TraceProducer producer,
                                            BiConsumer<Reports.Trace.Builder, Object> customizeTrace,
+                                           BiConsumer<Reports.Trace.Builder, GraphQLContext> customizeTraceGraphQLContext,
                                            VariablesSanitizer sanitizeVariables,
                                            boolean noop) {
     this.producer = producer;
     this.customizeTrace = customizeTrace;
+    this.customizeTraceGraphQLContext = customizeTraceGraphQLContext;
     this.sanitizeVariables = sanitizeVariables;
     this.proto = Reports.Trace.newBuilder();
     this.startRequestNs = System.nanoTime();
     this.context = null;
+    this.graphQLContext = null;
     this.nodePathsToNodes = new ConcurrentHashMap<>();
     this.noop = noop;
   }
 
   public ExecutionInput instrumentExecutionInput(ExecutionInput executionInput) {
     this.context = executionInput.getContext();
+    this.graphQLContext = executionInput.getGraphQLContext();
 
     // This signature is overridden after parsing if document is valid
     proto.setSignature(executionInput.getQuery());
@@ -136,6 +143,7 @@ public class TracingUploadInstrumentationState implements InstrumentationState {
   public CompletableFuture<ExecutionResult> instrumentExecutionResult(ExecutionResult executionResult) {
     populateRootNode();
     customizeTrace.accept(proto, context);
+    customizeTraceGraphQLContext.accept(proto, graphQLContext);
     producer.submit(proto.build());
 
     return CompletableFuture.completedFuture(executionResult);
