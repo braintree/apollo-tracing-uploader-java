@@ -253,6 +253,7 @@ public class EndToEndTest {
   }
 
   private ExecutionInput getExecutionInput(String operation, String query, Map<String, Object> variables) {
+    //noinspection deprecation
     return ExecutionInput.newExecutionInput()
       .operationName(operation)
       .query(query)

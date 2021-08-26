@@ -60,6 +60,7 @@ public class TracingUploadInstrumentationState implements InstrumentationState {
   }
 
   public ExecutionInput instrumentExecutionInput(ExecutionInput executionInput) {
+    //noinspection deprecation
     this.context = executionInput.getContext();
     this.graphQLContext = executionInput.getGraphQLContext();
 

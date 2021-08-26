@@ -131,7 +131,9 @@ public class TracingUploadInstrumentation extends SimpleInstrumentation {
      *                      context object. This should be used to set fields such as `clientName`, `clientVersion`, and
      *                      details about the HTTP request.
      * @return {@link Builder}
+     * @deprecated Deprecated in graphql-java, use {@link #customizeTraceGraphQLContext} instead.
      */
+    @Deprecated
     public Builder customizeTrace(BiConsumer<Reports.Trace.Builder, Object> traceConsumer) {
       this._customizeTrace = traceConsumer;
       return this;
