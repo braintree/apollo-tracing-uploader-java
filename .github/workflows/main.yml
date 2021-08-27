@@ -16,5 +16,12 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
-      - name: Test
+      - name: Build and Run Tests
         run: ./gradlew --stacktrace check
+        
+      - name: Deploy SNAPSHOT
+        run: ./scripts/deploy.sh snapshot
+        if: github.ref == 'ref/head/master' && github.event_name != 'pull_request'
+        env:
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
