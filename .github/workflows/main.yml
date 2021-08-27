@@ -18,5 +18,6 @@ jobs:
 
       - name: debugging
         if: ${{ github.ref == 'ref/head/master' && github.event_name != 'pull_request' }}
-        run: echo "ref: ${{ github.ref }} ${{ github.ref == 'refs/pull/14/merge }} event_name: ${{ github.event_name }} ${{ github.event_name == 'pull_request' }}"
+        run: |
+          echo "ref: ${{ github.ref }} ${{ github.ref == 'refs/pull/14/merge }} event_name: ${{ github.event_name }} ${{ github.event_name == 'pull_request' }}"
 
