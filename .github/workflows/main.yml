@@ -20,7 +20,7 @@ jobs:
         run: ./gradlew --stacktrace check
         
       - name: Deploy SNAPSHOT
-        if: github.ref == 'refs/head/master' && github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
         run: ./scripts/deploy.sh snapshot
         env:
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
