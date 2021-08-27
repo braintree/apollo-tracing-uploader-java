@@ -16,11 +16,7 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
-      - name: Build and Run Tests
-        run: ./gradlew --stacktrace check
-        
-      - name: Deploy SNAPSHOT
+      - name: debugging
         if: ${{ github.ref == 'ref/head/master' && github.event_name != 'pull_request' }}
-        run: ./scripts/deploy.sh snapshot
-        env:
-          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+        run: echo "ref: ${{ github.ref }} ${{ github.ref == 'refs/pull/14/merge }} event_name: ${{ github.event_name }} ${{ github.event_name == 'pull_request' }}"
+
