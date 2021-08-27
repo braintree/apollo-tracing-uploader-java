@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
+import graphql.GraphQLContext;
 import graphql.execution.instrumentation.InstrumentationContext;
 import graphql.execution.instrumentation.SimpleInstrumentation;
 import graphql.execution.instrumentation.SimpleInstrumentationContext;
@@ -26,15 +27,18 @@ import mdg.engine.proto.Reports;
 public class TracingUploadInstrumentation extends SimpleInstrumentation {
   private static final Logger logger = LoggerFactory.getLogger(TracingUploadInstrumentation.class);
   private final BiConsumer<Reports.Trace.Builder, Object> customizeTrace;
+  private final BiConsumer<Reports.Trace.Builder, GraphQLContext> customizeTraceGraphQLContext;
   private final VariablesSanitizer sanitizeVariables;
   private final TraceProducer producer;
   private final Supplier<Boolean> sendTracesIf;
 
   public TracingUploadInstrumentation(BiConsumer<Reports.Trace.Builder, Object> customizeTrace,
+                                      BiConsumer<Reports.Trace.Builder, GraphQLContext> customizeTraceGraphQLContext,
                                       VariablesSanitizer sanitizeVariables,
                                       TraceProducer producer,
                                       Supplier<Boolean> sendTracesIf) {
     this.customizeTrace = customizeTrace;
+    this.customizeTraceGraphQLContext = customizeTraceGraphQLContext;
     this.sanitizeVariables = sanitizeVariables;
     this.producer = producer;
     this.sendTracesIf = sendTracesIf;
@@ -47,7 +51,11 @@ public class TracingUploadInstrumentation extends SimpleInstrumentation {
   @Override
   public TracingUploadInstrumentationState createState() {
     boolean noop = !sendTracesIf.get();
-    return new TracingUploadInstrumentationState(producer, customizeTrace, sanitizeVariables, noop);
+    return new TracingUploadInstrumentationState(producer,
+                                                 customizeTrace,
+                                                 customizeTraceGraphQLContext,
+                                                 sanitizeVariables,
+                                                 noop);
   }
 
   @Override
@@ -87,7 +95,7 @@ public class TracingUploadInstrumentation extends SimpleInstrumentation {
   }
 
   private <T, U> U wrapHook(TracingUploadInstrumentationState state, Function<T, U> fn, T params, U fallback) {
-    if (state.noop) return fallback;
+    if (state.noop) { return fallback; }
 
     try {
       return fn.apply(params);
@@ -98,7 +106,10 @@ public class TracingUploadInstrumentation extends SimpleInstrumentation {
   }
 
   public static class Builder {
-    private BiConsumer<Reports.Trace.Builder, Object> _customizeTrace = (tr, ctx) -> {};
+    private BiConsumer<Reports.Trace.Builder, Object> _customizeTrace = (tr, ctx) -> {
+    };
+    private BiConsumer<Reports.Trace.Builder, GraphQLContext> _customizeTraceGraphQL = (tr, ctx) -> {
+    };
     private VariablesSanitizer _sanitizeVariables = VariablesSanitizer.valuesTo("[FILTERED]");
     private TraceProducer _producer;
     private Supplier<Boolean> _sendTracesIf = () -> true;
@@ -106,7 +117,11 @@ public class TracingUploadInstrumentation extends SimpleInstrumentation {
     public TracingUploadInstrumentation build() {
       assert _producer != null : "Missing producer(TraceProducer)";
 
-      return new TracingUploadInstrumentation(_customizeTrace, _sanitizeVariables, _producer, _sendTracesIf);
+      return new TracingUploadInstrumentation(_customizeTrace,
+                                              _customizeTraceGraphQL,
+                                              _sanitizeVariables,
+                                              _producer,
+                                              _sendTracesIf);
     }
 
     /**
@@ -116,9 +131,24 @@ public class TracingUploadInstrumentation extends SimpleInstrumentation {
      *                      context object. This should be used to set fields such as `clientName`, `clientVersion`, and
      *                      details about the HTTP request.
      * @return {@link Builder}
+     * @deprecated Deprecated in graphql-java, use {@link #customizeTraceGraphQLContext} instead.
      */
+    @Deprecated
     public Builder customizeTrace(BiConsumer<Reports.Trace.Builder, Object> traceConsumer) {
       this._customizeTrace = traceConsumer;
+      return this;
+    }
+
+    /**
+     * Register a function for customizing your trace protobuf message.
+     *
+     * @param traceConsumer A {@link BiConsumer} that accepts a {@link mdg.engine.proto.Reports.Trace.Builder} and
+     *                      {@link GraphQLContext} object. This should be used to set fields such as `clientName`,
+     *                      `clientVersion`, and details about the HTTP request.
+     * @return {@link Builder}
+     */
+    public Builder customizeTraceWithGraphQLContext(BiConsumer<Reports.Trace.Builder, GraphQLContext> traceConsumer) {
+      this._customizeTraceGraphQL = traceConsumer;
       return this;
     }
 
@@ -136,8 +166,8 @@ public class TracingUploadInstrumentation extends SimpleInstrumentation {
 
     /**
      * Register a {@link TraceProducer} for receiving {@link mdg.engine.proto.Reports.Trace} messages. This object is
-     * typically responsible for batching messages before compiling them into a
-     * {@link mdg.engine.proto.Reports.FullTracesReport} and sending them to Apollo.
+     * typically responsible for batching messages before compiling them into a {@link
+     * mdg.engine.proto.Reports.FullTracesReport} and sending them to Apollo.
      *
      * @param producer A {@link TraceProducer} object.
      * @return {@link Builder}
