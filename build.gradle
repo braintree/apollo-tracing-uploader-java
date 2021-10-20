@@ -48,6 +48,7 @@ signing {
   required {
     !version.endsWith('SNAPSHOT')
   }
+  useGpgCmd()
   sign configurations.archives
 }
 
